@@ -46,6 +46,7 @@ npm run typecheck && npm run lint && npm test && npm run build
 | You set | You get |
 | --- | --- |
 | nothing | Demo Mode: simulated renders, 120 demo credits per browser, local Director |
+| `KINETIX_JOB_SECRET` | Signs job tokens (HMAC). Random 48+ chars. Set it in production |
 | `GEMINI_API_KEY` (or OpenRouter / OpenAI) | Vision Director (reads Frame 0 of the clip) |
 | Supabase 3 keys + run `supabase/schema.sql` | Email sign-in, 30 free credits, atomic deduct + refund, synced Library |
 | `FAL_KEY` (+ Supabase) | Live partner engines |
