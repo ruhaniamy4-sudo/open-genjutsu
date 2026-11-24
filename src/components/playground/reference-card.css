@@ -1,0 +1,8 @@
+.pg-ref { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 12px; background: var(--fill); border: 1px solid var(--line); }
+.pg-ref .pg-ref-thumb { flex: 0 0 96px; width: 96px; height: 54px; border-radius: 8px; object-fit: cover; background: var(--media); display: grid; place-items: center; color: var(--ink-3); font-size: 11px; text-align: center; }
+.pg-ref .pg-ref-thumb.dim { opacity: 0.55; }
+.pg-ref .pg-ref-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pg-ref .pg-ref-text b { font-size: 14px; line-height: 20px; color: var(--ink); }
+.pg-ref .pg-ref-text small { font-size: 12px; line-height: 16px; color: var(--ink-3); }
+.pg-ref.ready { border-color: color-mix(in srgb, var(--lime) 55%, transparent); }
+.pg-ref.ready .pg-ref-text b { color: var(--lime); }
