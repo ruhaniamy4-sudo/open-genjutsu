@@ -32,6 +32,7 @@ import {
   newProject,
   newScene,
   newShot,
+  resolveReference,
   sampleProject,
   saveProjects,
   totalShots,
@@ -340,9 +341,9 @@ export default function PlaygroundClient() {
         return { ok: false, lastFrame: null };
       }
 
-      // Identity / continuity reference: previous shot's last frame wins, else the first cast portrait.
-      const castPortrait = proj.characters.find((c) => shot.characterIds.includes(c.id) && c.ref)?.ref ?? null;
-      const ref = (hasContinuityFrame ? prevFrame : null) || castPortrait;
+      // Same resolver as the reference card: previous shot's last frame wins, else the first cast portrait.
+      const ref = resolveReference(shot, prev, proj.characters, prevFrame).img;
+      setRender(pid, sid, { refFromId: hasContinuityFrame && prev ? prev.id : null });
       let faceUrl: string | undefined;
       let clipUrl: string | undefined;
 
@@ -741,7 +742,20 @@ export default function PlaygroundClient() {
             </div>
           )}
         </div>
-        <div className="pg-mobile-tabs" role="tablist" aria-label="Editor sections">
+        <div
+          className="pg-mobile-tabs"
+          role="tablist"
+          aria-label="Editor sections"
+          onKeyDown={(e) => {
+            const ids = ['shots', 'preview', 'details'] as const;
+            const i = ids.indexOf(mobileTab);
+            const next = e.key === 'ArrowRight' ? (i + 1) % 3 : e.key === 'ArrowLeft' ? (i + 2) % 3 : e.key === 'Home' ? 0 : e.key === 'End' ? 2 : -1;
+            if (next < 0) return;
+            e.preventDefault();
+            setMobileTab(ids[next]);
+            document.getElementById(`pg-tab-${ids[next]}`)?.focus();
+          }}
+        >
           {([
             ['shots', 'Shots'],
             ['preview', 'Preview'],
@@ -749,9 +763,12 @@ export default function PlaygroundClient() {
           ] as const).map(([id, label]) => (
             <button
               key={id}
+              id={`pg-tab-${id}`}
               type="button"
               role="tab"
               aria-selected={mobileTab === id}
+              aria-controls={id === 'shots' ? 'pg-board' : 'pg-main'}
+              tabIndex={mobileTab === id ? 0 : -1}
               className={`pg-mobile-tab${mobileTab === id ? ' on' : ''}`}
               onClick={() => {
                 playSfx('tap');
@@ -765,7 +782,7 @@ export default function PlaygroundClient() {
       </div>
 
       <div className="pg-editor wrap" data-mobile-tab={mobileTab}>
-        <aside className="pg-board" aria-label="Scenes and shots">
+        <aside className="pg-board" id="pg-board" aria-label="Scenes and shots">
           <div className="pg-board-scenes">
           {project.scenes.map((sc, si) => {
             const unshot = sc.shots.filter((s) => s.render?.status !== 'completed');
@@ -845,10 +862,13 @@ export default function PlaygroundClient() {
                         <button
                           type="button"
                           className={`pg-shot${current?.shot.id === s.id ? ' on' : ''}`}
+                          aria-current={current?.shot.id === s.id ? 'true' : undefined}
                           onClick={() => {
                             playSfx('tap');
                             setShotId(s.id);
                             setMobileTab('details');
+                            // The board is hidden on phones once a shot is picked; move focus to the visible tab.
+                            if (window.matchMedia('(max-width: 860px)').matches) requestAnimationFrame(() => document.getElementById('pg-tab-details')?.focus());
                           }}
                         >
                           {sc.shots.length > 1 && <GripVertical size={12} className="pg-grip" aria-hidden="true" />}
@@ -925,7 +945,7 @@ export default function PlaygroundClient() {
           </button>
         </aside>
 
-        <section className="pg-main">
+        <section className="pg-main" id="pg-main">
           {storageWarning && (
             <div className="pg-notice err" role="alert">
               {storageWarning}
@@ -964,6 +984,7 @@ export default function PlaygroundClient() {
                 scene={current.scene}
                 shot={current.shot}
                 prev={current.prev}
+                uploads={Boolean(config?.uploads)}
                 index={shotIndex}
                 footageName={footageNames[current.shot.id] ?? null}
                 directing={directing}

@@ -44,6 +44,8 @@ export interface ShotRender {
   error: string | null;
   demo: boolean;
   refunded?: boolean;
+  /** Id of the previous shot whose frame was sent as the reference (null = none / portrait). Set at shoot time. */
+  refFromId?: string | null;
 }
 
 export interface Shot {
@@ -172,6 +174,27 @@ export function findShot(project: Project, shotId: string): { scene: Scene; shot
     }
   }
   return null;
+}
+
+export type RefReason = 'first' | 'off' | 'unshot' | 'noframe' | 'ready';
+
+/**
+ * The one place that decides which image a shot is shot against.
+ * Used by both the reference card and the render dispatch so they cannot disagree.
+ * `prevFrame` lets the batch runner pass a fresh in-memory capture for the real predecessor.
+ */
+export function resolveReference(
+  shot: Shot,
+  prev: Shot | null,
+  cast: Character[],
+  prevFrame: string | null = prev?.lastFrame ?? null,
+): { reason: RefReason; img: string | null; kind: 'frame' | 'portrait' | 'none'; portraitName: string | null } {
+  const portrait = cast.find((c) => c.ref && shot.characterIds.includes(c.id)) ?? null;
+  const fallback = { img: portrait?.ref ?? null, kind: portrait ? ('portrait' as const) : ('none' as const), portraitName: portrait?.name ?? null };
+  if (!prev) return { reason: 'first', ...fallback };
+  if (!shot.continuity) return { reason: 'off', ...fallback };
+  if (prevFrame) return { reason: 'ready', img: prevFrame, kind: 'frame', portraitName: portrait?.name ?? null };
+  return { reason: prev.render?.status === 'completed' ? 'noframe' : 'unshot', ...fallback };
 }
 
 /** Deterministic English shot prompt. Dialogue is kept verbatim (it is meant to be spoken). */

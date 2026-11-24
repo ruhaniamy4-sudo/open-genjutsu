@@ -487,7 +487,7 @@ a { color: inherit; text-decoration: none; }
   .studio .dock::-webkit-scrollbar { display: none; }
   .studio .dock-item { width: 44px; height: 44px; flex-shrink: 0; }
   .studio .status-line {
-    order: 3;
+    order: 5;
     position: static;
     left: auto;
     bottom: auto;
@@ -538,8 +538,13 @@ a { color: inherit; text-decoration: none; }
   .studio .composer-row .gen-btn { margin-left: auto; min-height: 44px; }
   .studio .composer-row .gen-btn .mono { display: inline; opacity: 0.85; }
   .studio .ref-slot { min-height: 44px; min-width: 44px; height: 44px; padding: 0 12px; }
+  /* the labeled summary buttons are the phone triggers; the icon buttons would duplicate them */
+  .studio .pop-btn[aria-haspopup] { display: none; }
   .studio .pop-btn { min-height: 44px; min-width: 44px; height: 44px; padding: 0 12px; }
-  .studio .mode-toggle button { min-height: 38px; padding: 0 11px; }
+  .studio .mode-toggle button { min-height: 44px; min-width: 44px; padding: 0 11px; }
+  /* 44px hit area without growing the 22px visual */
+  .studio .ref-x { position: relative; }
+  .studio .ref-x::after { content: ''; position: absolute; inset: -11px; }
   .studio .composer .popover { max-height: 60dvh; overflow-y: auto; }
 }
 
@@ -757,6 +762,9 @@ select.field option, select.field optgroup { background: var(--bg-2); color: var
   .pg-page .pg-shot { min-height: 52px; padding: 8px; }
   .pg-page .opt { min-height: 44px; }
   .pg-page .pg-shoot-scene-btn { min-height: 44px; height: 44px; padding: 0 14px; font-size: 13px; }
+  .pg-page .pg-notice a, .pg-page .pg-notice button.link { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 8px; }
+  /* keep focused controls clear of the sticky tab bar and the fixed action bar */
+  html:has(.pg-page) { scroll-padding-top: calc(var(--nav-h) + 140px); scroll-padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
 
   .pg-mobile-actionbar {
     position: fixed;

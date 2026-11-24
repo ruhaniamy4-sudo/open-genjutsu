@@ -2,43 +2,64 @@
 
 import { Clapperboard, Copy, Film, Link2, Loader2, Plus, Square, Trash2, Wand2, X } from 'lucide-react';
 import { useState } from 'react';
-import { ANGLES, CAMERAS, LENSES, MOVES, TIMES, compileShotPrompt, uid, type Project, type Scene, type Shot } from '@/lib/playground';
+import { ANGLES, CAMERAS, LENSES, MOVES, TIMES, compileShotPrompt, resolveReference, uid, type Project, type Scene, type Shot } from '@/lib/playground';
 import { DURATIONS, ENGINES, getEngine, type Duration, type EngineId } from '@/lib/vfx-data';
 import { playSfx } from '@/lib/sfx';
 import './reference-card.css';
 
-/** Shows exactly which frame will carry into this shot before credits are spent. */
-function ReferenceCard({ shot, prev, index, cast }: { shot: Shot; prev: Shot | null; index: number; cast: Project['characters'] }) {
-  const portrait = cast.find((c) => c.ref && shot.characterIds.includes(c.id));
-  let title: string;
-  let note: string;
-  let img: string | null = null;
-  let ready = false;
-  if (!prev) {
-    title = 'First shot of the scene: nothing to carry';
-    note = portrait ? `${portrait.name}'s cast portrait is the only reference.` : 'Add a cast portrait to lock the look.';
-    img = portrait?.ref ?? null;
-  } else if (!shot.continuity) {
-    title = 'Continuity off: fresh start';
-    note = portrait ? `${portrait.name}'s cast portrait is the only reference.` : 'No image reference. The previous frame is ignored.';
-    img = portrait?.ref ?? null;
-  } else if (prev.lastFrame) {
-    title = `Using final frame of shot ${index - 1}`;
-    note = 'Eyeline, wardrobe and screen direction carry over.';
-    img = prev.lastFrame;
-    ready = true;
-  } else {
-    title = `Waiting for shot ${index - 1}`;
-    note = portrait ? `Until it is shot, ${portrait.name}'s cast portrait is used.` : 'Shoot the previous shot first.';
-    img = portrait?.ref ?? null;
-  }
+/** Shows exactly which frame this shot is shot against, using the same resolver as the render. */
+function ReferenceCard({ shot, prev, index, cast, uploads, sceneNo }: { shot: Shot; prev: Shot | null; index: number; cast: Project['characters']; uploads: boolean; sceneNo: number }) {
+  const [compare, setCompare] = useState(false);
+  const ref = resolveReference(shot, prev, cast);
+  const who = ref.portraitName ? `${ref.portraitName}'s cast portrait` : null;
+  const ready = ref.reason === 'ready';
+  const title = {
+    first: 'First shot of the scene: nothing to carry',
+    off: 'Continuity off: fresh start',
+    ready: `Using final frame of shot ${index - 1} · scene ${sceneNo}`,
+    noframe: `Shot ${index - 1} is done, but its last frame could not be read`,
+    unshot: `Waiting for shot ${index - 1}`,
+  }[ref.reason];
+  const note = {
+    first: who ? `${who} is the only reference.` : 'No image reference. Add a cast portrait to lock the look.',
+    off: who ? `${who} is the only reference.` : 'No image reference. The previous frame is ignored.',
+    ready: 'Eyeline, wardrobe and screen direction are sent as the reference image.',
+    noframe: who ? `Using ${who} instead. Reshoot shot ${index - 1} to capture a frame.` : 'No image reference. Reshoot the previous shot to capture a frame.',
+    unshot: who ? `Until it is shot, ${who} is used.` : 'Shoot the previous shot first.',
+  }[ref.reason];
+  const own = shot.render?.status === 'completed' ? (shot.render.outputType === 'image' ? shot.render.outputUrl : shot.lastFrame) : null;
+  const changed = shot.render?.status === 'completed' && shot.render.refFromId !== undefined && shot.render.refFromId !== (shot.continuity && prev ? prev.id : null);
   return (
     <div className={`pg-ref${ready ? ' ready' : ''}`} role="status">
-      {img ? <img className={`pg-ref-thumb${ready ? '' : ' dim'}`} src={img} alt="" /> : <span className="pg-ref-thumb">No frame</span>}
+      {ref.img ? <img className={`pg-ref-thumb${ready ? '' : ' dim'}`} src={ref.img} alt="" /> : <span className="pg-ref-thumb">No frame</span>}
       <span className="pg-ref-text">
         <b>{title}</b>
         <small>{note}</small>
+        {ref.img && !uploads && <small>Preview only: image uploads are off on this server, so only the text prompt is sent.</small>}
+        {changed && <small className="pg-ref-changed">Reference changed since this take. Reshoot to use the new one.</small>}
+        {ref.img && (
+          <button type="button" className="btn btn-text pg-ref-cmp" onClick={() => setCompare(true)}>
+            {own ? 'Compare frames' : 'View frame'}
+          </button>
+        )}
       </span>
+      {compare && ref.img && (
+        <div className="pg-cmp" role="dialog" aria-modal="true" aria-label="Compare reference frame" onClick={() => setCompare(false)} onKeyDown={(e) => e.key === 'Escape' && setCompare(false)}>
+          <div className="pg-cmp-body" onClick={(e) => e.stopPropagation()}>
+            <figure>
+              <img src={ref.img} alt="Reference frame" />
+              <figcaption className="mono">Reference</figcaption>
+            </figure>
+            {own && (
+              <figure>
+                <img src={own} alt="This shot" />
+                <figcaption className="mono">This shot</figcaption>
+              </figure>
+            )}
+            <button type="button" className="btn btn-glass" autoFocus onClick={() => setCompare(false)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -73,6 +94,7 @@ export default function ShotPanel({
   scene,
   shot,
   prev,
+  uploads,
   index,
   footageName,
   onPatch,
@@ -90,6 +112,7 @@ export default function ShotPanel({
   scene: Scene;
   shot: Shot;
   prev: Shot | null;
+  uploads: boolean;
   index: number;
   footageName: string | null;
   onPatch: (p: Partial<Shot>) => void;
@@ -247,6 +270,11 @@ export default function ShotPanel({
         <Chips label="Angle" options={ANGLES} value={shot.angle} onPick={(angle) => onPatch({ angle })} />
         <Chips label="Movement" options={MOVES} value={shot.move} onPick={(move) => onPatch({ move })} />
 
+        <div className="pg-field">
+          <span className="eyebrow">Reference</span>
+          <ReferenceCard shot={shot} prev={prev} index={index} cast={cast} uploads={uploads} sceneNo={project.scenes.indexOf(scene) + 1} />
+        </div>
+
         <div className="pg-row">
           <div className="pg-field" style={{ flex: 1 }}>
             <span className="eyebrow">Source</span>
@@ -278,11 +306,6 @@ export default function ShotPanel({
           </div>
         </div>
 
-        <div className="pg-field">
-          <span className="eyebrow">Reference</span>
-          <ReferenceCard shot={shot} prev={prev} index={index} cast={cast} />
-        </div>
-
         <div className="pg-row" style={{ alignItems: 'flex-end' }}>
           <div className="pg-field" style={{ flex: 1 }}>
             <label className="eyebrow" htmlFor="shot-engine">Engine</label>
@@ -300,14 +323,14 @@ export default function ShotPanel({
             className={`opt${shot.continuity ? ' on' : ''}`}
             style={{ flex: 1, padding: '6px 10px' }}
             role="switch"
-            aria-checked={shot.continuity}
+            aria-checked={Boolean(prev && shot.continuity)}
             disabled={!prev}
             onClick={() => onPatch({ continuity: !shot.continuity })}
           >
             <Link2 size={15} />
             <span className="opt-main">
               <b>Continuity</b>
-              <small>{prev ? (prev.lastFrame ? 'Start from last shot’s final frame' : 'Shoot the previous shot first') : 'First shot of the film'}</small>
+              <small>{prev ? (prev.lastFrame ? 'Start from last shot’s final frame' : 'Shoot the previous shot first') : 'First shot of the scene'}</small>
             </span>
             <span className={`toggle${shot.continuity && prev ? ' on' : ''}`} aria-hidden="true" />
           </button>

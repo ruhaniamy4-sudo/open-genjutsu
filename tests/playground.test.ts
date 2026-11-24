@@ -11,6 +11,7 @@ import {
   newProject,
   newScene,
   parseScript,
+  resolveReference,
   sampleProject,
 } from '../src/lib/playground.ts';
 
@@ -145,4 +146,24 @@ test('shot list CSV and printable HTML exports escape fields and preserve Bangla
   assert.match(html, /ARRI Alexa 65/);
   assert.match(html, /85mm portrait/);
   assert.match(html, /পুরান ঢাকা/);
+});
+
+test('resolveReference picks the same image the card shows', () => {
+  const p = sampleProject();
+  p.characters[0].ref = 'data:image/jpeg;base64,PORTRAIT';
+  const [a, b] = p.scenes[0].shots;
+  const cast = p.characters;
+  assert.deepEqual([resolveReference(a, null, cast).reason, resolveReference(a, null, cast).kind], ['first', 'portrait']);
+  assert.equal(resolveReference(b, a, cast).reason, 'unshot');
+  a.render = { jobToken: null, status: 'completed', outputUrl: 'x', outputType: 'video', progress: 1, error: null, demo: false };
+  assert.equal(resolveReference(b, a, cast).reason, 'noframe');
+  a.lastFrame = 'data:image/jpeg;base64,FRAME';
+  const ready = resolveReference(b, a, cast);
+  assert.deepEqual([ready.reason, ready.img], ['ready', 'data:image/jpeg;base64,FRAME']);
+  assert.equal(resolveReference(b, a, cast, null).reason, 'noframe');
+  b.continuity = false;
+  const off = resolveReference(b, a, cast);
+  assert.deepEqual([off.reason, off.img], ['off', 'data:image/jpeg;base64,PORTRAIT']);
+  b.characterIds = [];
+  assert.equal(resolveReference(b, a, cast).kind, 'none');
 });

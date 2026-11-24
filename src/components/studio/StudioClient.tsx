@@ -443,15 +443,6 @@ export default function StudioClient() {
       {/* Worker controls are for the studio owner / friend testers only (opened with a ?gpu= link). */}
       {gpuUrl && <GpuPill gpuUrl={gpuUrl} setGpuUrl={setGpuUrl} gpu={gpu} mode={gpuMode} engineName={engine.name} billingOn={billingOn} />}
 
-      {/* preset dock */}
-      <nav className="dock" aria-label="Cinema presets">
-        {PRESETS.map((p) => (
-          <button key={p.id} type="button" className={`dock-item${p.id === effectId ? ' on' : ''}`} onClick={() => pickPreset(p.id)} aria-pressed={p.id === effectId} aria-label={p.title} title={p.title}>
-            <img src={p.image} alt="" />
-          </button>
-        ))}
-      </nav>
-
       {/* monitor */}
       <div className="monitor-wrap" ref={fitRef}>
         <motion.div
@@ -534,34 +525,14 @@ export default function StudioClient() {
         </motion.div>
       </div>
 
-      {/* status line */}
-      <AnimatePresence>
-        {message && (
-          <motion.div
-            className={`status-line${message.kind === 'error' ? ' err' : ''}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            role={message.kind === 'error' ? 'alert' : 'status'}
-          >
-            {message.text}{' '}
-            {message.action === 'pricing' && <Link href="/pricing">Get credits</Link>}
-            {message.action === 'signin' && (
-              <button type="button" className="link" onClick={() => setAuthOpen(true)}>
-                Sign in
-              </button>
-            )}
-            {message.action === 'engine' && (
-              <button type="button" className="link" onClick={() => setPop('engine')}>
-                Switch engine
-              </button>
-            )}
-            <button type="button" className="ref-x" style={{ display: 'inline-grid', verticalAlign: 'middle', marginLeft: 6 }} onClick={() => setMessage(null)} aria-label="Dismiss">
-              <X size={12} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* preset dock (after the monitor so keyboard order matches the phone layout; fixed on desktop) */}
+      <nav className="dock" aria-label="Cinema presets">
+        {PRESETS.map((p) => (
+          <button key={p.id} type="button" className={`dock-item${p.id === effectId ? ' on' : ''}`} onClick={() => pickPreset(p.id)} aria-pressed={p.id === effectId} aria-label={p.title} title={p.title}>
+            <img src={p.image} alt="" />
+          </button>
+        ))}
+      </nav>
 
       {/* composer */}
       <div className="composer" ref={popRef}>
@@ -609,6 +580,9 @@ export default function StudioClient() {
             type="button"
             className="studio-summary-btn"
             disabled={running}
+            aria-label={`Engine: ${engine.name}`}
+            aria-expanded={pop === 'engine'}
+            aria-haspopup="true"
             onClick={() => {
               playSfx('tap');
               setPop(pop === 'engine' ? null : 'engine');
@@ -620,6 +594,9 @@ export default function StudioClient() {
           <button
             type="button"
             className="studio-summary-btn mono"
+            aria-label={`Format: ${mode === 'video' ? `${aspect}, ${duration}` : aspect}`}
+            aria-expanded={pop === 'format'}
+            aria-haspopup="true"
             onClick={() => {
               playSfx('tap');
               setPop(pop === 'format' ? null : 'format');
@@ -791,6 +768,35 @@ export default function StudioClient() {
           )}
         </div>
       </div>
+
+      {/* status line (after the composer: keeps the phone dock-to-composer gap at 12px; fixed on desktop) */}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            className={`status-line${message.kind === 'error' ? ' err' : ''}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            role={message.kind === 'error' ? 'alert' : 'status'}
+          >
+            {message.text}{' '}
+            {message.action === 'pricing' && <Link href="/pricing">Get credits</Link>}
+            {message.action === 'signin' && (
+              <button type="button" className="link" onClick={() => setAuthOpen(true)}>
+                Sign in
+              </button>
+            )}
+            {message.action === 'engine' && (
+              <button type="button" className="link" onClick={() => setPop('engine')}>
+                Switch engine
+              </button>
+            )}
+            <button type="button" className="ref-x" style={{ display: 'inline-grid', verticalAlign: 'middle', marginLeft: 6 }} onClick={() => setMessage(null)} aria-label="Dismiss">
+              <X size={12} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <DirectorDrawer
         open={drawer}
